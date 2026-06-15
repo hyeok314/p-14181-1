@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,8 +55,18 @@ public class ApiV1PostController {
     @DeleteMapping("/{id}")
     @Transactional
     @Operation(summary = "삭제")
-    public RsData<Void> delete(@PathVariable int id) {
+    public RsData<Void> delete(@PathVariable int id,
+                               @NotBlank @Size(min = 30, max = 50)
+                               @RequestHeader("Authorization") String authorization
+                               ) {
+        String apiKey = authorization.replace("Bearer ", "");
+        Member actor = memberService.findByApiKey(apiKey)
+                .orElseThrow(() -> new ServiceException("401-1", "존재하지 않는 apiKey입니다."));
+
         Post post = postService.findById(id).get();
+
+        if (!actor.equals(post.getAuthor()))
+            throw new ServiceException("403-1", "글 수정 권한이 없습니다.");
 
         postService.delete(post);
 
@@ -82,8 +93,9 @@ public class ApiV1PostController {
     public RsData<PostDto> write(
             @RequestBody @Valid PostWriteReqBody reqBody,
             @NotBlank @Size(min = 30, max = 50)
-            String apiKey
+            @RequestHeader("Authorization") String authorization
     ) {
+        String apiKey = authorization.replace("Bearer ", "");
         Member actor = memberService.findByApiKey(apiKey).orElseThrow(() -> new ServiceException("401-1", "존재하지 않는 apiKey 입니다."));
         Post post = postService.write(actor, reqBody.title, reqBody.content);
 
@@ -110,9 +122,17 @@ public class ApiV1PostController {
     @Operation(summary = "수정")
     public RsData<Void> modify(
             @PathVariable int id,
-            @RequestBody @Valid PostModifyReqBody reqBody
+            @RequestBody @Valid PostModifyReqBody reqBody,
+            @NotBlank @Size(min = 30, max = 50) @RequestHeader("Authorization") String authorization
     ) {
+        String apiKey = authorization.replace("Bearer ", "");
+        Member actor = memberService.findByApiKey(apiKey)
+                .orElseThrow(() -> new ServiceException("401-1", "존재하지 않는 apiKey입니다."));
+
         Post post = postService.findById(id).get();
+
+        if (!actor.equals(post.getAuthor()))
+            throw new ServiceException("403-1", "글 수정 권한이 없습니다.");
 
         postService.modify(post, reqBody.title, reqBody.content);
 
