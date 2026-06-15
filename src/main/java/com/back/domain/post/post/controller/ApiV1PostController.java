@@ -5,6 +5,7 @@ import com.back.domain.member.member.service.MemberService;
 import com.back.domain.post.post.dto.PostDto;
 import com.back.domain.post.post.entity.Post;
 import com.back.domain.post.post.service.PostService;
+import com.back.global.exception.ServiceException;
 import com.back.global.rsData.RsData;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,11 +14,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
+@Validated
 @RequestMapping("/api/v1/posts")
 @RequiredArgsConstructor
 @Tag(name = "ApiV1PostController", description = "API 글 컨트롤러")
@@ -33,14 +36,16 @@ public class ApiV1PostController {
 
         return items
                 .stream()
-                .map(PostDto::new) // PostDto로 변환
+                .map(PostDto::new)
                 .toList();
     }
 
     @GetMapping("/{id}")
     @Transactional(readOnly = true)
     @Operation(summary = "단건 조회")
-    public PostDto getItem(@PathVariable int id) {
+    public PostDto getItem(
+            @PathVariable int id
+    ) {
         Post post = postService.findById(id).get();
 
         return new PostDto(post);
@@ -61,7 +66,7 @@ public class ApiV1PostController {
     }
 
 
-    record PostWriteReqBody(
+    public record PostWriteReqBody(
             @NotBlank
             @Size(min = 2, max = 100)
             String title,
@@ -74,10 +79,12 @@ public class ApiV1PostController {
     @PostMapping
     @Transactional
     @Operation(summary = "작성")
-    public RsData<PostDto> write(@Valid @RequestBody PostWriteReqBody reqBody,
-                                 @NotBlank @Size(min = 2, max = 30) String username
+    public RsData<PostDto> write(
+            @RequestBody @Valid PostWriteReqBody reqBody,
+            @NotBlank @Size(min = 30, max = 50)
+            String apiKey
     ) {
-        Member actor = memberService.findByUsername(username).get(); // 임시로 작성자를 user1로 지정
+        Member actor = memberService.findByApiKey(apiKey).orElseThrow(() -> new ServiceException("401-1", "존재하지 않는 apiKey 입니다."));
         Post post = postService.write(actor, reqBody.title, reqBody.content);
 
         return new RsData<>(
@@ -87,7 +94,8 @@ public class ApiV1PostController {
         );
     }
 
-    record PostModifyReqBody(
+
+    public record PostModifyReqBody(
             @NotBlank
             @Size(min = 2, max = 100)
             String title,
@@ -102,9 +110,10 @@ public class ApiV1PostController {
     @Operation(summary = "수정")
     public RsData<Void> modify(
             @PathVariable int id,
-            @Valid @RequestBody PostModifyReqBody reqBody
+            @RequestBody @Valid PostModifyReqBody reqBody
     ) {
         Post post = postService.findById(id).get();
+
         postService.modify(post, reqBody.title, reqBody.content);
 
         return new RsData<>(
