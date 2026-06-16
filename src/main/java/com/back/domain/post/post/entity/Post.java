@@ -16,7 +16,6 @@ import java.util.Optional;
 
 import static jakarta.persistence.CascadeType.PERSIST;
 import static jakarta.persistence.CascadeType.REMOVE;
-import static jakarta.persistence.FetchType.LAZY;
 
 @Entity
 @Getter
@@ -27,8 +26,8 @@ public class Post extends BaseEntity {
     private String title;
     private String content;
 
-    @OneToMany(mappedBy = "post", fetch = LAZY, cascade = {PERSIST, REMOVE}, orphanRemoval = true)
-    private List<PostComment> comments = new ArrayList<>();
+    @OneToMany(mappedBy = "post", cascade = {PERSIST, REMOVE}, orphanRemoval = true)
+    private final List<PostComment> comments = new ArrayList<>();
 
     public Post(Member author, String title, String content) {
         this.author = author;
@@ -61,14 +60,13 @@ public class Post extends BaseEntity {
         return comments.remove(postComment);
     }
 
-    public void checkActorCanDelete(Member actor) {
-        if (!actor.equals(actor))
-            throw new ServiceException("403-1", "글 수정 권한이 없습니다.");
-    }
-
     public void checkActorCanModify(Member actor) {
-        if (!actor.equals(actor))
-            throw new ServiceException("403-1", "글 수정 권한이 없습니다.");
+        if (!author.equals(actor))
+            throw new ServiceException("403-1", "%d번 글 수정 권한이 없습니다.".formatted(getId()));
     }
 
+    public void checkActorCanDelete(Member actor) {
+        if (!author.equals(actor))
+            throw new ServiceException("403-2", "%d번 글 삭제 권한이 없습니다.".formatted(getId()));
+    }
 }

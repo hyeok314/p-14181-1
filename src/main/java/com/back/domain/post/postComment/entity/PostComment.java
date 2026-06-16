@@ -15,7 +15,7 @@ import static jakarta.persistence.FetchType.LAZY;
 @Getter
 @NoArgsConstructor
 public class PostComment extends BaseEntity {
-    @ManyToOne(fetch = LAZY)
+    @ManyToOne
     private Member author;
     @ManyToOne(fetch = LAZY)
     private Post post;
@@ -31,14 +31,13 @@ public class PostComment extends BaseEntity {
         this.content = content;
     }
 
-    public void checkActorCanDelete(Member actor) {
-        if (!author.equals(actor))
-            throw new ServiceException("403-1", "댓글 수정 권한이 없습니다.");
-    }
-
     public void checkActorCanModify(Member actor) {
         if (!author.equals(actor))
-            throw new ServiceException("403-1", "댓글 수정 권한이 없습니다.");
+            throw new ServiceException("403-1", "%d번 댓글 수정 권한이 없습니다.".formatted(getId()));
     }
 
+    public void checkActorCanDelete(Member actor) {
+        if (!author.equals(actor))
+            throw new ServiceException("403-2", "%d번 댓글 삭제 권한이 없습니다.".formatted(getId()));
+    }
 }
