@@ -8,6 +8,7 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,8 +31,11 @@ public class AuthTokenServiceTest {
     @Autowired
     private AuthTokenService authTokenService;
 
-    private final int expireSeconds = 60 * 60 * 24 * 365;
-    private final String secret = "abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890";
+    @Value("${custom.accessToken.expirationSeconds}")
+    private int expireSeconds;
+
+    @Value("${custom.jwt.secretKey}")
+    private String secret;
 
     @Test
     @DisplayName("authTokenService 서비스가 존재한다.")
@@ -84,15 +88,25 @@ public class AuthTokenServiceTest {
     @Test
     @DisplayName("Ut.jwt.toString 를 통해서 JWT 생성, {name=\"Paul\", age=23}")
     void t3() {
+        Map<String, Object> payload = Map.of("name", "Paul", "age", 23);
+
         String jwt = Ut.jwt.toString(
                 secret,
                 expireSeconds,
-                Map.of("name", "Paul", "age", 23)
+                payload
         );
 
         assertThat(jwt).isNotBlank();
 
-        System.out.println("jwt = " + jwt);
+        assertThat(
+                Ut.jwt.isValid(secret, jwt)
+        )
+                .isTrue();
+
+        Map<String, Object> parsedPayload = Ut.jwt.payload(secret, jwt);
+
+        assertThat(parsedPayload).containsAllEntriesOf(payload);
+
     }
 
     @Test
@@ -105,5 +119,17 @@ public class AuthTokenServiceTest {
         assertThat(accessToken).isNotBlank();
 
         System.out.println("accessToken = " + accessToken);
+
+        Map<String, Object> parsedPayload = authTokenService.payload(accessToken);
+
+        assertThat(parsedPayload)
+                .containsAllEntriesOf(
+                        Map.of(
+                                "id", memberUser1.getId(),
+                                "username", memberUser1.getUsername()
+                        )
+                );
+
     }
+
 }
