@@ -1,11 +1,9 @@
 package com.back.domain.post.post.controller;
 
 import com.back.domain.member.member.entity.Member;
-import com.back.domain.member.member.service.MemberService;
 import com.back.domain.post.post.dto.PostDto;
 import com.back.domain.post.post.entity.Post;
 import com.back.domain.post.post.service.PostService;
-import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,7 +27,6 @@ import java.util.List;
 @SecurityRequirement(name = "bearerAuth")
 public class ApiV1PostController {
     private final PostService postService;
-    private final MemberService memberService;
     private final Rq rq;
 
     @GetMapping
