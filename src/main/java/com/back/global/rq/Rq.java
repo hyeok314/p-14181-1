@@ -49,8 +49,9 @@ public class Rq {
 
             if (payload != null) {
                 int id = (int) payload.get("id");
-                member = memberService.findById(id)
-                        .orElseThrow(() -> new ServiceException("401-4", "accessToken의 id에 해당하는 회원이 존재하지 않습니다."));
+                String username = (String) payload.get("username");
+
+                member = new Member(id, username);
             }
         }
 
@@ -71,16 +72,11 @@ public class Rq {
     }
 
     private String getCookieValue(String name, String defaultValue) {
-        return Optional
-                .ofNullable(req.getCookies())
-                .flatMap(
-                        cookies ->
-                                Arrays.stream(cookies)
-                                        .filter(cookie -> cookie.getName().equals(name))
-                                        .map(Cookie::getValue)
-                                        .filter(value -> !value.isBlank())
-                                        .findFirst()
-                )
+        return Arrays.stream(Optional.ofNullable(req.getCookies()).orElse(new Cookie[0]))
+                .filter(cookie -> name.equals(cookie.getName()))
+                .map(Cookie::getValue)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
                 .orElse(defaultValue);
     }
 
