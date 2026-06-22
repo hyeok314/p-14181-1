@@ -1,7 +1,10 @@
 package com.back.global.security;
 
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.service.MemberService;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
+import com.back.global.rsData.RsData;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,14 +15,36 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
 public class CustomAuthenticationFilter extends OncePerRequestFilter {
+    private final MemberService memberService;
     private final Rq rq;
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         logger.debug("Processing request for " + request.getRequestURI());
+
+        try {
+            work(request, response, filterChain);
+        } catch (ServiceException e) {
+            RsData<Void> rsData = e.getRsData();
+            response.setContentType("application/json");
+            response.setStatus(rsData.statusCode());
+            response.getWriter().write("""
+                    {
+                        "resultCode": "%s",
+                        "msg": "%s"
+                    }
+                    """.formatted(rsData.resultCode(), rsData.msg()));
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
+    private void work(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+
 
         // API 요청이 아니라면 패스
         if (!request.getRequestURI().startsWith("/api/")) {
@@ -53,6 +78,43 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
 
         logger.debug("apiKey : " + apiKey);
         logger.debug("accessToken : " + accessToken);
+
+        boolean isApiKeyExists = !apiKey.isBlank();
+        boolean isAccessTokenExists = !accessToken.isBlank();
+
+        if (!isApiKeyExists && !isAccessTokenExists) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        Member member = null;
+        boolean isAccessTokenValid = false;
+
+        if (isAccessTokenExists) {
+            Map<String, Object> payload = memberService.payload(accessToken);
+
+            if (payload != null) {
+                int id = (int) payload.get("id");
+                String username = (String) payload.get("username");
+                String name = (String) payload.get("name");
+                member = new Member(id, username, name);
+
+                isAccessTokenValid = true;
+            }
+        }
+
+        if (member == null) {
+            member = memberService
+                    .findByApiKey(apiKey)
+                    .orElseThrow(() -> new ServiceException("401-3", "API 키가 유효하지 않습니다."));
+        }
+
+        if (isAccessTokenExists && !isAccessTokenValid) {
+            String actorAccessToken = memberService.genAccessToken(member);
+
+            rq.setCookie("accessToken", actorAccessToken);
+            rq.setHeader("Authorization", actorAccessToken);
+        }
 
         filterChain.doFilter(request, response);
     }
